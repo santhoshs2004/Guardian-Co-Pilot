@@ -8,7 +8,14 @@
  
  AI-Enhanced Driver Wellness Monitor is a comprehensive real-time system that detects driver fatigue, distraction, and stress levels using multi-modal AI analysis. The system provides tiered, non-distracting interventions to prevent accidents before they happen.
 
+
 ## The Problem
+
+
+=> AI-Enhanced Driver Wellness Monitoring
+
+Fatigue and stress significantly reduce driver alertness, increasing the risk of accidents. Using cabin video, steering behavior, and optional wearables, create a solution that detects drowsiness or stress levels and suggests safe, non-distracting interventions to keep drivers and passengers safe.
+
 
 
 1.35 million people die annually in road accidents (WHO)
@@ -26,66 +33,119 @@ Current solutions are either reactive or too intrusive
 ## Our Solution
 
 
-A proactive, AI-powered system that:
+=>Drowsiness Detection - eye closure, micro-sleeps, nodding, and loss of focus.
 
 
-Monitors driver state in real-time (50ms response)
+=>Stress Detection - from facial expressions, driving behavior, and physiological data.
 
 
-Detects fatigue, distraction, and stress simultaneously
+=>Non-Distracting Intervention 
 
 
-Provides context-aware, non-distracting interventions
+=>Multi-Modal Fusion - combine video, steering, and wearable data for a more robust system than any single input.
 
 
-Prevents accidents before they occur
+idea uniqueness :
+
+
+=>Context-Awareness: The system's sensitivity changes based on context (e.g., high-speed highway vs. slow city traffic, time of day).
+
+
+=>Proactive vs. Reactive: Don't just alert when the driver is already asleep. Predict impending drowsiness/stress based on trends.
+
+
+=>Personalized Baseline: The system learns the driver's normal behavior (e.g., their typical steering style, resting heart rate) for more accurate anomaly detection.
 
 
 ## Features
 
-## Core Capabilities
-
-Feature	                          Technology	            Accuracy	            Response Time
-
-Fatigue Detection	              Eye Aspect Ratio (EAR)	      95%	                 <100ms
-
-Distraction Classification	     Behavioral Analysis	         90%	                  <150ms
-
-Stress Assessment	              Multi-modal Fusion	          85%	                  <200ms
-
-Wellness Scoring	               Composite AI	                92%	                  <50ms
 
 
-## Safety Interventions
 
-## Level	Condition	   Interventions
-Level 0	 - Excellent	  Positive reinforcement
 
-Level 1	 - Good	       Gentle suggestions
+<img width="880" height="378" alt="Screenshot 2025-10-24 215020" src="https://github.com/user-attachments/assets/b80d7e06-3caf-4fb3-abc0-e6baaad863f7" />
 
-Level 2	 - Moderate	   Specific recommendations
 
-Level 3	 - High Risk	  Strong warnings
 
-Level 4	 - Critical	   Immediate action required
+
+
+
+
+
+<img width="648" height="421" alt="Screenshot 2025-10-24 214936" src="https://github.com/user-attachments/assets/cbb0f112-9477-436c-ad5f-1149620e12ba" />
+
+
+
+
+
+
 
 
 <img width="404" height="424" alt="image" src="https://github.com/user-attachments/assets/ac75623e-2357-4069-addf-590bbde638bb" />
 
 
+
+## Key Features of the Multi-Modal System:
+
+## 1. Comprehensive Monitoring:
+
+Fatigue Detection: EAR, MAR, eye closure duration
+
+Behavior Classification: 6 distraction types with risk scoring
+
+Stress Assessment: Simulated stress levels
+
+Steering Analysis: Simulated steering irregularity
+
+Wellness Scoring: 0-100 comprehensive score
+
+## 2. Tiered Intervention System:
+
+Level 0: Excellent - Positive reinforcement
+
+Level 1: Suggestion - Gentle reminders
+
+Level 2: Moderate - Specific suggestions
+
+Level 3: High Risk - Strong warnings
+
+Level 4: Critical - Immediate action required
+
+## 3. Multi-Modal Integration:
+
+Video Analysis: Cabin camera for face/behavior
+
+Steering Data: CAN bus integration ready
+
+Wearables: HRV and stress monitoring ready
+
+
+Real-time Processing: <50ms per frame
+
+
+
 ## Installation
+
+
 
 ## System Requirements
 
+
+
 Python: 3.8, 3.9, 3.10, 3.11, or 3.12
+
 
 OS: Windows 10+, macOS 10.14+, Ubuntu 18.04+
 
+
 RAM: 4GB minimum, 8GB recommended
+
 
 Webcam: 720p+ resolution recommended
 
+
 Storage: 500MB free space
+
 
 
 ## Manual Installation
@@ -190,7 +250,11 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Future Roadmap
 
+
+
 Phase 1(6 months) 
+
+
 
 OBD-II integration for real steering data
 
@@ -201,7 +265,12 @@ Cloud dashboard for fleet management
 Mobile app for driver feedback
 
 
+
+
 Phase 2 (12 months) 
+
+
+
 
 Predictive analytics for risk forecasting
 
@@ -210,6 +279,8 @@ OEM integration partnerships
 Insurance telematics platform
 
 Global deployment scaling
+
+
 
 
 
