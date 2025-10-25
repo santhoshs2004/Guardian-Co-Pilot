@@ -16,8 +16,7 @@ import time
 
 # Import your existing detector
 import cv2
-from fatigue_detector import FatigueDetector
-
+from .fatigue_detector import FatigueDetector
 app = FastAPI(title="Guardian Co-Pilot API", version="1.0.0")
 
 # CORS Configuration
