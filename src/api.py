@@ -19,7 +19,7 @@ import uuid
 
 # Import your existing detector
 import cv2
-from fatigue_detector import FatigueDetector
+from .fatigue_detector import FatigueDetector
 
 # Initialize FastAPI app
 app = FastAPI(
