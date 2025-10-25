@@ -4,6 +4,7 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
+    pythonVersion: "3.10.13"
     envVars:
       - key: PYTHON_VERSION
-        value: 3.10.1
+        value: 3.10.13
