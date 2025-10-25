@@ -6,23 +6,34 @@ Run with: uvicorn api:app --reload --host 0.0.0.0 --port 8000
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, List
 from datetime import datetime
 import asyncio
 import threading
 import queue
 import time
+import json
+import uuid
 
 # Import your existing detector
 import cv2
-from .fatigue_detector import FatigueDetector
-app = FastAPI(title="Guardian Co-Pilot API", version="1.0.0")
+from fatigue_detector import FatigueDetector
 
-# CORS Configuration
+# Initialize FastAPI app
+app = FastAPI(
+    title="Guardian Co-Pilot API",
+    description="Real-time driver fatigue detection system",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# CORS Configuration - Allow all origins for development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # For production, specify your frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,12 +47,16 @@ current_session_id = None
 metrics_queue = queue.Queue(maxsize=100)
 
 # Data storage
-sessions_db = {}
-active_websockets = {}
+sessions_db: Dict[str, List[Dict]] = {}
+active_websockets: Dict[str, WebSocket] = {}
 
 # ============= DATA MODELS =============
 
 class SessionStartRequest(BaseModel):
+    camera_id: int = 0
+    session_name: Optional[str] = None
+
+class CameraTestRequest(BaseModel):
     camera_id: int = 0
 
 # ============= DETECTION THREAD =============
@@ -58,6 +73,8 @@ class BackendDetectionSystem:
         self.thread = None
         self.camera_opened = False
         self.error_message = None
+        self.frame_count = 0
+        self.start_time = None
         
     def start(self):
         """Start detection in separate thread"""
@@ -109,6 +126,7 @@ class BackendDetectionSystem:
             # Configure camera
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            self.cap.set(cv2.CAP_PROP_FPS, 30)
             
             # Test frame read
             ret, test_frame = self.cap.read()
@@ -122,6 +140,7 @@ class BackendDetectionSystem:
             # Camera successfully opened
             self.camera_opened = True
             self.running = True
+            self.start_time = time.time()
             detection_running = True
             
             print(f"✅ Camera {self.camera_id} opened successfully!")
@@ -129,7 +148,6 @@ class BackendDetectionSystem:
             print(f"📷 Camera resolution: {test_frame.shape[1]}x{test_frame.shape[0]}")
             
             frame_count = 0
-            start_time = time.time()
             consecutive_failures = 0
             max_consecutive_failures = 10
             
@@ -149,6 +167,7 @@ class BackendDetectionSystem:
                 
                 # Reset failure counter on success
                 consecutive_failures = 0
+                frame_count += 1
                 
                 # Flip frame for mirror effect
                 frame = cv2.flip(frame, 1)
@@ -162,8 +181,7 @@ class BackendDetectionSystem:
                     continue
                 
                 # Calculate FPS
-                frame_count += 1
-                elapsed = time.time() - start_time
+                elapsed = time.time() - self.start_time
                 fps = frame_count / elapsed if elapsed > 0 else 0
                 
                 # Package metrics
@@ -178,7 +196,8 @@ class BackendDetectionSystem:
                     'face_detected': metrics['face_detected'],
                     'status': metrics['status'],
                     'alert_message': metrics['alert_message'],
-                    'fps': round(fps, 1)
+                    'fps': round(fps, 1),
+                    'frame_count': frame_count
                 }
                 
                 # Store metrics
@@ -191,7 +210,7 @@ class BackendDetectionSystem:
                     metrics_queue.put_nowait(metrics_data)
                 except queue.Full:
                     try:
-                        metrics_queue.get_nowait()
+                        metrics_queue.get_nowait()  # Remove oldest
                         metrics_queue.put_nowait(metrics_data)
                     except:
                         pass
@@ -200,7 +219,7 @@ class BackendDetectionSystem:
                 if metrics['fatigue_level'] >= 3:
                     print(f"🚨 CRITICAL ALERT - Session {self.session_id}: {metrics['status']}")
                 
-                # Control frame rate (~30 FPS)
+                # Control frame rate (~20-30 FPS)
                 time.sleep(0.03)
                 
         except Exception as e:
@@ -234,30 +253,52 @@ class BackendDetectionSystem:
 # ============= API ENDPOINTS =============
 
 @app.get("/")
-def root():
-    """Health check"""
+async def root():
+    """Health check and API information"""
     return {
         "status": "online",
         "service": "Guardian Co-Pilot API",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "detection_active": detection_running,
-        "current_session": current_session_id
+        "current_session": current_session_id,
+        "timestamp": datetime.now().isoformat(),
+        "endpoints": {
+            "docs": "/docs",
+            "health": "/api/health",
+            "start_detection": "/api/detection/start",
+            "stop_detection": "/api/detection/stop",
+            "camera_test": "/api/camera/test",
+            "list_cameras": "/api/camera/list"
+        }
     }
 
 @app.get("/api/health")
-def health_check():
+async def health_check():
     """Detailed health check"""
+    camera_status = "unknown"
+    try:
+        cap = cv2.VideoCapture(0)
+        camera_status = "available" if cap.isOpened() else "unavailable"
+        cap.release()
+    except:
+        camera_status = "error"
+    
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "detection_running": detection_running,
         "active_sessions": len(sessions_db),
         "websocket_connections": len(active_websockets),
-        "current_session": current_session_id
+        "current_session": current_session_id,
+        "camera_status": camera_status,
+        "system_metrics": {
+            "queue_size": metrics_queue.qsize(),
+            "total_sessions": len(sessions_db)
+        }
     }
 
 @app.post("/api/detection/start")
-def start_detection(request: SessionStartRequest):
+async def start_detection(request: SessionStartRequest):
     """
     START DETECTION SYSTEM
     Returns error immediately if camera fails to open
@@ -276,11 +317,14 @@ def start_detection(request: SessionStartRequest):
         time.sleep(0.5)
     
     # Create new session
-    session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+    if request.session_name:
+        session_id = f"{request.session_name}_{session_id}"
+    
     current_session_id = session_id
     sessions_db[session_id] = []
     
-    print(f"📹 Attempting to open camera {request.camera_id}...")
+    print(f"📹 Attempting to open camera {request.camera_id} for session {session_id}...")
     
     # Start detection system
     detection_system = BackendDetectionSystem(session_id, request.camera_id)
@@ -300,18 +344,19 @@ def start_detection(request: SessionStartRequest):
         
         raise HTTPException(status_code=500, detail=error_msg)
     
-    print(f"✅ Camera {request.camera_id} started successfully!")
+    print(f"✅ Camera {request.camera_id} started successfully for session {session_id}!")
     
     return {
         "status": "started",
         "session_id": session_id,
         "camera_id": request.camera_id,
         "started_at": datetime.now().isoformat(),
-        "message": "Detection system activated successfully"
+        "message": "Detection system activated successfully",
+        "websocket_url": f"wss://guardian-co-pilot-1.onrender.com/ws/{session_id}"
     }
 
 @app.post("/api/detection/stop")
-def stop_detection():
+async def stop_detection():
     """STOP DETECTION SYSTEM"""
     global detection_system, detection_running, current_session_id
     
@@ -337,11 +382,12 @@ def stop_detection():
         "status": "stopped",
         "session_id": stopped_session,
         "stopped_at": datetime.now().isoformat(),
-        "message": "Detection system stopped successfully"
+        "message": "Detection system stopped successfully",
+        "session_data_available": stopped_session in sessions_db
     }
 
 @app.get("/api/camera/test")
-def test_camera(camera_id: int = 0):
+async def test_camera(camera_id: int = 0):
     """Test if camera is available"""
     print(f"🧪 Testing camera {camera_id}...")
     
@@ -360,6 +406,7 @@ def test_camera(camera_id: int = 0):
             ]
         }
     
+    # Try to read a frame
     ret, frame = cap.read()
     cap.release()
     
@@ -379,43 +426,68 @@ def test_camera(camera_id: int = 0):
         "available": True,
         "camera_id": camera_id,
         "resolution": f"{frame.shape[1]}x{frame.shape[0]}",
-        "message": f"Camera {camera_id} is working properly!"
+        "channels": frame.shape[2] if len(frame.shape) > 2 else 1,
+        "message": f"Camera {camera_id} is working properly!",
+        "details": {
+            "frame_width": frame.shape[1],
+            "frame_height": frame.shape[0],
+            "data_type": str(frame.dtype)
+        }
     }
 
 @app.get("/api/camera/list")
-def list_cameras():
+async def list_cameras():
     """Find all available cameras"""
     print("🔍 Scanning for cameras...")
     available_cameras = []
     
-    for i in range(5):
+    for i in range(5):  # Check first 5 camera indices
         cap = cv2.VideoCapture(i)
         if cap.isOpened():
             ret, frame = cap.read()
             if ret:
                 available_cameras.append({
                     "camera_id": i,
-                    "resolution": f"{frame.shape[1]}x{frame.shape[0]}"
+                    "resolution": f"{frame.shape[1]}x{frame.shape[0]}",
+                    "channels": frame.shape[2] if len(frame.shape) > 2 else 1,
+                    "status": "working"
+                })
+            else:
+                available_cameras.append({
+                    "camera_id": i,
+                    "status": "opened_but_no_frame"
                 })
             cap.release()
+        else:
+            available_cameras.append({
+                "camera_id": i,
+                "status": "not_available"
+            })
+    
+    working_cameras = [cam for cam in available_cameras if cam.get('status') == 'working']
     
     return {
         "available_cameras": available_cameras,
-        "count": len(available_cameras),
-        "message": f"Found {len(available_cameras)} camera(s)"
+        "working_cameras": working_cameras,
+        "count": len(working_cameras),
+        "message": f"Found {len(working_cameras)} working camera(s) out of {len(available_cameras)} tested"
     }
 
 @app.get("/api/detection/status")
-def detection_status():
+async def detection_status():
     """Get current detection status"""
     return {
         "running": detection_running,
         "session_id": current_session_id,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "details": {
+            "camera_active": detection_system.camera_opened if detection_system else False,
+            "frame_count": detection_system.frame_count if detection_system else 0
+        }
     }
 
 @app.post("/api/detection/reset")
-def reset_detection():
+async def reset_detection():
     """FORCE RESET - Stop any running detection"""
     global detection_system, detection_running, current_session_id
     
@@ -444,7 +516,7 @@ def reset_detection():
     }
 
 @app.get("/api/metrics/latest")
-def get_latest_metrics():
+async def get_latest_metrics():
     """Get most recent metrics"""
     if not current_session_id or current_session_id not in sessions_db:
         raise HTTPException(status_code=404, detail="No active session")
@@ -456,11 +528,12 @@ def get_latest_metrics():
     return {
         "session_id": current_session_id,
         "latest_metrics": metrics[-1],
-        "total_frames": len(metrics)
+        "total_frames": len(metrics),
+        "time_elapsed": f"{(datetime.now() - datetime.fromisoformat(metrics[0]['timestamp'])).total_seconds():.1f}s"
     }
 
 @app.get("/api/session/{session_id}")
-def get_session(session_id: str, limit: int = 100):
+async def get_session(session_id: str, limit: int = 100):
     """Get recent metrics for session"""
     if session_id not in sessions_db:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -469,11 +542,15 @@ def get_session(session_id: str, limit: int = 100):
     return {
         "session_id": session_id,
         "total_records": len(metrics),
+        "time_range": {
+            "start": metrics[0]['timestamp'] if metrics else None,
+            "end": metrics[-1]['timestamp'] if metrics else None
+        },
         "recent_metrics": metrics[-limit:] if len(metrics) > limit else metrics
     }
 
 @app.get("/api/analytics/{session_id}")
-def get_analytics(session_id: str):
+async def get_analytics(session_id: str):
     """Calculate analytics from session"""
     if session_id not in sessions_db:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -553,16 +630,17 @@ def get_analytics(session_id: str):
             "average_fps": round(avg_fps, 1),
             "face_detection_rate": round(len(valid_metrics) / total_frames * 100, 1) if total_frames > 0 else 0
         },
-        "fatigue_timeline": fatigue_timeline[-20:],
+        "fatigue_timeline": fatigue_timeline[-20:],  # Last 20 events
         "risk_assessment": {
             "level": risk_level,
             "recommendation": recommendation,
-            "drowsiness_percentage": round(drowsy_events / total_frames * 100, 1) if total_frames > 0 else 0
+            "drowsiness_percentage": round(drowsy_events / total_frames * 100, 1) if total_frames > 0 else 0,
+            "critical_percentage": round(critical_events / total_frames * 100, 1) if total_frames > 0 else 0
         }
     }
 
 @app.get("/api/sessions/list")
-def list_sessions():
+async def list_sessions():
     """List all sessions"""
     sessions = []
     for session_id, metrics in sessions_db.items():
@@ -570,9 +648,11 @@ def list_sessions():
             sessions.append({
                 "session_id": session_id,
                 "start_time": metrics[0]['timestamp'],
+                "end_time": metrics[-1]['timestamp'],
                 "frame_count": len(metrics),
                 "last_update": metrics[-1]['timestamp'],
-                "is_active": session_id == current_session_id and detection_running
+                "is_active": session_id == current_session_id and detection_running,
+                "max_fatigue_level": max((m['fatigue_level'] for m in metrics), default=0)
             })
     
     return {
@@ -582,7 +662,7 @@ def list_sessions():
     }
 
 @app.delete("/api/session/{session_id}")
-def delete_session(session_id: str):
+async def delete_session(session_id: str):
     """Delete session data"""
     if session_id == current_session_id and detection_running:
         raise HTTPException(status_code=400, detail="Cannot delete active session")
@@ -594,7 +674,8 @@ def delete_session(session_id: str):
     
     return {
         "status": "deleted",
-        "session_id": session_id
+        "session_id": session_id,
+        "message": "Session data deleted successfully"
     }
 
 # ============= WEBSOCKET =============
@@ -606,68 +687,105 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     active_websockets[session_id] = websocket
     
     try:
+        # Send connection confirmation
         await websocket.send_json({
             "type": "connection",
             "message": f"Connected to session {session_id}",
+            "session_id": session_id,
             "timestamp": datetime.now().isoformat()
         })
         
+        print(f"🔌 WebSocket connected: {session_id}")
+        
         last_heartbeat = time.time()
+        last_metrics_time = time.time()
         
         while True:
             try:
-                metrics = metrics_queue.get(timeout=0.1)
-                
-                if metrics['session_id'] == session_id:
-                    await websocket.send_json({
-                        "type": "metrics_update",
-                        "data": metrics
-                    })
-                    last_heartbeat = time.time()
+                # Try to get metrics from queue
+                try:
+                    metrics = metrics_queue.get(timeout=1.0)
                     
-            except queue.Empty:
-                if time.time() - last_heartbeat > 2:
+                    if metrics['session_id'] == session_id:
+                        await websocket.send_json({
+                            "type": "metrics_update",
+                            "data": metrics
+                        })
+                        last_metrics_time = time.time()
+                    
+                except queue.Empty:
+                    # No new metrics, send heartbeat if needed
+                    pass
+                
+                # Send heartbeat every 10 seconds if no metrics
+                if time.time() - last_heartbeat > 10:
                     await websocket.send_json({
                         "type": "heartbeat",
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": datetime.now().isoformat(),
+                        "session_active": session_id == current_session_id
                     })
                     last_heartbeat = time.time()
-                await asyncio.sleep(0.1)
+                
+                # Small sleep to prevent busy waiting
+                await asyncio.sleep(0.01)
+                
+            except Exception as e:
+                print(f"WebSocket inner error: {e}")
+                break
                 
     except WebSocketDisconnect:
-        if session_id in active_websockets:
-            del active_websockets[session_id]
         print(f"🔌 WebSocket disconnected: {session_id}")
     except Exception as e:
         print(f"❌ WebSocket error: {e}")
+    finally:
         if session_id in active_websockets:
             del active_websockets[session_id]
+        print(f"🔌 WebSocket cleanup: {session_id}")
 
 # ============= STARTUP/SHUTDOWN =============
 
 @app.on_event("startup")
 async def startup_event():
-    print("=" * 50)
-    print("🚗 GUARDIAN CO-PILOT API STARTED")
-    print("=" * 50)
-    print("📡 Server: http://localhost:8000")
-    print("📖 API Docs: http://localhost:8000/docs")
-    print("🎥 Ready to activate detection system")
-    print("=" * 50)
+    print("=" * 60)
+    print("🚗 GUARDIAN CO-PILOT API STARTED - Version 2.0.0")
+    print("=" * 60)
+    print("📡 Server: https://guardian-co-pilot-1.onrender.com")
+    print("📖 API Docs: https://guardian-co-pilot-1.onrender.com/docs")
+    print("🔌 WebSocket: wss://guardian-co-pilot-1.onrender.com/ws/{session_id}")
+    print("🎥 Detection system ready")
+    print("=" * 60)
 
 @app.on_event("shutdown")
 async def shutdown_event():
     global detection_system, detection_running
     
-    print("\n🛑 Shutting down...")
+    print("\n🛑 Shutting down Guardian Co-Pilot API...")
     
+    # Close all WebSocket connections
+    for session_id, websocket in list(active_websockets.items()):
+        try:
+            await websocket.close()
+        except:
+            pass
+    active_websockets.clear()
+    
+    # Stop detection
     if detection_system:
         detection_system.stop()
     
     detection_running = False
     
-    print("✅ Shutdown complete")
+    print("✅ Shutdown complete. Thank you for using Guardian Co-Pilot!")
+
+# ============= MAIN =============
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000, 
+        log_level="info",
+        ws_ping_interval=20,
+        ws_ping_timeout=20
+    )
