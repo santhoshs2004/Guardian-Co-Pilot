@@ -1,7 +1,6 @@
 FROM python:3.10.13-slim
 
-
-
+# Set working directory
 WORKDIR /app
 
 # Install system dependencies
@@ -16,11 +15,11 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy ALL application code (including src folder)
 COPY . .
 
 # Expose port
 EXPOSE 8000
 
-# Start command
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start command - pointing to src/api.py
+CMD ["uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "8000"]
