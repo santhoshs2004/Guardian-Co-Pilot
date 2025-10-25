@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guardian Co-Pilot - Real-time Driver Monitoring</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #64b5f6, #4caf50);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .camera-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        @media (max-width: 768px) {
+            .camera-section {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .video-container {
+            background: #1e1e2e;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 2px solid #2d2d44;
+        }
+        
+        .video-container h3 {
+            margin-bottom: 15px;
+            color: #64b5f6;
+        }
+        
+        .video-feed {
+            width: 100%;
+            max-width: 640px;
+            border-radius: 8px;
+            border: 2px solid #64b5f6;
+            background: #0a0a14;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-start {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .btn-stop {
+            background: #f44336;
+            color: white;
+        }
+        
+        .btn-test {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .status-box {
+            background: #1e1e2e;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            margin-bottom: 30px;
+            border: 3px solid #4caf50;
+            transition: all 0.3s;
+        }
+        
+        .status-box.inactive {
+            border-color: #666;
+        }
+        
+        .status-box.warning {
+            border-color: #ff9800;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-box.danger {
+            border-color: #f44336;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+        
+        .status-text {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .status-message {
+            font-size: 1.1rem;
+            color: #ccc;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: #1e1e2e;
+            border-radius: 12px;
+            padding: 25px;
+            border: 2px solid #2d2d44;
+            transition: all 0.3s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .metric-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #64b5f6;
+        }
+        
+        .metric-value {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 2px 10px rgba(100, 181, 246, 0.3);
+        }
+        
+        .metric-label {
+            font-size: 0.9rem;
+            color: #999;
+            margin-bottom: 10px;
+        }
+        
+        .metric-state {
+            font-size: 1.3rem;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+        
+        .state-good {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .state-warning {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .state-danger {
+            background: #f44336;
+            color: white;
+        }
+        
+        .state-neutral {
+            background: #2196f3;
+            color: white;
+        }
+        
+        .stream-stats {
+            background: #1e1e2e;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+        
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #1e1e2e;
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 2px solid #4caf50;
+            z-index: 1000;
+        }
+        
+        .connection-status.offline {
+            border-color: #f44336;
+        }
+        
+        .alert-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #f44336;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: none;
+            z-index: 1000;
+            animation: pulse 1s infinite;
+        }
+        
+        .alert-banner.show {
+            display: block;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="alert-banner" id="alertBanner"></div>
+
+    <div class="connection-status" id="connectionStatus">
+        <div>Backend: <span id="backendState">Checking...</span></div>
+        <div>Session: <span id="sessionId">None</span></div>
+        <div>WebSocket: <span id="websocketState">Disconnected</span></div>
+        <div>Stream: <span id="streamState">Inactive</span></div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🚗 Guardian Co-Pilot - Live Driver Monitoring</h1>
+            <p>Real-time fatigue detection using your camera</p>
+        </div>
+
+        <div class="camera-section">
+            <div class="video-container">
+                <h3>📷 Live Camera Feed</h3>
+                <video id="localVideo" autoplay muted playsinline class="video-feed"></video>
+                <div class="stream-stats">
+                    Resolution: <span id="resolution">Not started</span> | FPS: <span id="localFps">0</span>
+                </div>
+            </div>
+
+            <div class="video-container">
+                <h3>🔍 Processed Feed (Backend)</h3>
+                <canvas id="processedCanvas" class="video-feed" style="display: none;"></canvas>
+                <img id="processedImage" class="video-feed" style="display: none;">
+                <div id="noFeedMessage" style="padding: 40px; color: #999;">
+                    Processed frames will appear here
+                </div>
+                <div class="stream-stats">
+                    Status: <span id="processingStatus">Waiting</span> | Backend FPS: <span id="backendFps">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="startBtn" class="btn btn-start">▶️ Start Live Detection</button>
+            <button id="stopBtn" class="btn btn-stop" style="display: none;">⏹️ Stop Detection</button>
+            <button id="testBtn" class="btn btn-test">🧪 Test Mode</button>
+        </div>
+
+        <div class="status-box inactive" id="statusBox">
+            <div class="status-text" id="statusText">SYSTEM IDLE</div>
+            <div class="status-message" id="statusMessage">Click "Start Live Detection" to begin monitoring</div>
+        </div>
+
+        <div class="metrics-grid">
+            <!-- Eye Aspect Ratio -->
+            <div class="metric-card">
+                <h3>👁️ Eye Aspect Ratio (EAR)</h3>
+                <div class="metric-label">Measures eye openness (0.15-0.30)</div>
+                <div class="metric-value" id="earValue">0.000</div>
+                <div class="metric-state state-neutral" id="eyeState">WAITING</div>
+            </div>
+
+            <!-- Mouth Aspect Ratio -->
+            <div class="metric-card">
+                <h3>😮 Mouth Aspect Ratio (MAR)</h3>
+                <div class="metric-label">Measures mouth openness (0.10-0.60)</div>
+                <div class="metric-value" id="marValue">0.000</div>
+                <div class="metric-state state-neutral" id="mouthState">WAITING</div>
+            </div>
+
+            <!-- Fatigue Level -->
+            <div class="metric-card">
+                <h3>💤 Fatigue Level</h3>
+                <div class="metric-label">Risk Assessment (0-3 Scale)</div>
+                <div class="metric-value" id="fatigueValue">0</div>
+                <div class="metric-state state-good" id="fatigueState">NORMAL</div>
+            </div>
+
+            <!-- FPS -->
+            <div class="metric-card">
+                <h3>⚡ Performance</h3>
+                <div class="metric-label">Frames Per Second</div>
+                <div class="metric-value" id="fpsValue">0</div>
+                <div class="metric-state state-neutral" id="fpsState">IDLE</div>
+            </div>
+
+            <!-- Face Detection -->
+            <div class="metric-card">
+                <h3>🎯 Face Detection</h3>
+                <div class="metric-label">Detection Status</div>
+                <div class="metric-value" id="faceValue">❌</div>
+                <div class="metric-state state-neutral" id="faceState">NO FACE</div>
+            </div>
+
+            <!-- Session Stats -->
+            <div class="metric-card">
+                <h3>📊 Session Stats</h3>
+                <div class="metric-label">Total Frames Processed</div>
+                <div class="metric-value" id="frameCount">0</div>
+                <div class="metric-state state-neutral" id="durationState">00:00</div>
+            </div>
+        </div>
+
+        <div class="raw-data">
+            <h3>📋 Live Data Stream</h3>
+            <pre id="rawMetrics">Waiting for data from backend...</pre>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://guardian-co-pilot-1.onrender.com';
+        let ws = null;
+        let sessionId = null;
+        let isActive = false;
+        let startTime = null;
+        let frameCounter = 0;
+        let localStream = null;
+        let frameInterval = null;
+        let lastFrameTime = 0;
+        let localFrameCount = 0;
+        let backendFrameCount = 0;
+
+        // DOM Elements
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const testBtn = document.getElementById('testBtn');
+        const statusBox = document.getElementById('statusBox');
+        const statusText = document.getElementById('statusText');
+        const statusMessage = document.getElementById('statusMessage');
+        const alertBanner = document.getElementById('alertBanner');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const backendState = document.getElementById('backendState');
+        const sessionIdEl = document.getElementById('sessionId');
+        const websocketState = document.getElementById('websocketState');
+        const streamState = document.getElementById('streamState');
+        const localVideo = document.getElementById('localVideo');
+        const processedCanvas = document.getElementById('processedCanvas');
+        const processedImage = document.getElementById('processedImage');
+        const noFeedMessage = document.getElementById('noFeedMessage');
+        const resolutionEl = document.getElementById('resolution');
+        const localFpsEl = document.getElementById('localFps');
+        const backendFpsEl = document.getElementById('backendFps');
+        const processingStatus = document.getElementById('processingStatus');
+
+        // Metric elements
+        const earValue = document.getElementById('earValue');
+        const marValue = document.getElementById('marValue');
+        const fatigueValue = document.getElementById('fatigueValue');
+        const fpsValue = document.getElementById('fpsValue');
+        const faceValue = document.getElementById('faceValue');
+        const frameCount = document.getElementById('frameCount');
+        const eyeState = document.getElementById('eyeState');
+        const mouthState = document.getElementById('mouthState');
+        const fatigueState = document.getElementById('fatigueState');
+        const fpsState = document.getElementById('fpsState');
+        const faceState = document.getElementById('faceState');
+        const durationState = document.getElementById('durationState');
+        const rawMetrics = document.getElementById('rawMetrics');
+
+        // Check backend connection
+        async function checkBackend() {
+            try {
+                const response = await fetch(`${API_URL}/api/health`);
+                if (response.ok) {
+                    backendState.textContent = '🟢 Online';
+                    connectionStatus.classList.remove('offline');
+                    return true;
+                }
+            } catch (err) {
+                backendState.textContent = '🔴 Offline';
+                connectionStatus.classList.add('offline');
+                console.error('Backend check failed:', err);
+            }
+            return false;
+        }
+
+        // Capture frame from video and send to backend
+        function captureAndSendFrame() {
+            if (!isActive || !localStream || !ws || ws.readyState !== WebSocket.OPEN) {
+                return;
+            }
+
+            const currentTime = Date.now();
+            if (currentTime - lastFrameTime < 100) { // ~10 FPS to reduce bandwidth
+                return;
+            }
+
+            try {
+                // Capture frame from video
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = localVideo.videoWidth;
+                canvas.height = localVideo.videoHeight;
+                ctx.drawImage(localVideo, 0, 0, canvas.width, canvas.height);
+
+                // Convert to base64 for sending
+                canvas.toBlob(blob => {
+                    const reader = new FileReader();
+                    reader.onload = function() {
+                        const base64data = reader.result.split(',')[1];
+
+                        // Send frame to backend via WebSocket
+                        ws.send(JSON.stringify({
+                            type: 'video_frame',
+                            session_id: sessionId,
+                            frame_data: base64data,
+                            width: canvas.width,
+                            height: canvas.height,
+                            timestamp: Date.now()
+                        }));
+
+                        localFrameCount++;
+                        lastFrameTime = currentTime;
+
+                        // Update local FPS counter
+                        updateLocalFPS();
+                    };
+                    reader.readAsDataURL(blob);
+                }, 'image/jpeg', 0.7); // 70% quality to reduce bandwidth
+
+            } catch (err) {
+                console.error('Error capturing frame:', err);
+            }
+        }
+
+        // Update local FPS counter
+        function updateLocalFPS() {
+            const now = Date.now();
+            const elapsed = (now - startTime) / 1000;
+            const fps = elapsed > 0 ? localFrameCount / elapsed : 0;
+            localFpsEl.textContent = Math.round(fps);
+        }
+
+        // Start video streaming and detection
+        async function startDetection() {
+            if (!await checkBackend()) {
+                alert('Backend API is offline! Please ensure the API server is running.');
+                return;
+            }
+
+            try {
+                startBtn.disabled = true;
+                startBtn.innerHTML = '<span class="loading"></span> Starting Camera...';
+
+                // Request camera access
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: {
+                            ideal: 640
+                        },
+                        height: {
+                            ideal: 480
+                        },
+                        facingMode: 'user'
+                    }
+                });
+
+                // Set up local video display
+                localVideo.srcObject = localStream;
+                await localVideo.play();
+
+                // Wait for video dimensions
+                await new Promise(resolve => {
+                    const checkDimensions = () => {
+                        if (localVideo.videoWidth > 0) {
+                            resolutionEl.textContent = `${localVideo.videoWidth}x${localVideo.videoHeight}`;
+                            resolve();
+                        } else {
+                            setTimeout(checkDimensions, 100);
+                        }
+                    };
+                    checkDimensions();
+                });
+
+                // Start backend session
+                const response = await fetch(`${API_URL}/api/detection/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        camera_id: -1, // Indicate we're using video streaming
+                        session_name: 'video_stream'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Failed to start detection session');
+                }
+
+                sessionId = data.session_id;
+                sessionIdEl.textContent = sessionId;
+                isActive = true;
+                startTime = Date.now();
+                frameCounter = 0;
+                localFrameCount = 0;
+                backendFrameCount = 0;
+
+                startBtn.style.display = 'none';
+                stopBtn.style.display = 'inline-block';
+                testBtn.style.display = 'none';
+
+                statusBox.classList.remove('inactive');
+                statusText.textContent = 'LIVE DETECTION ACTIVE';
+                statusMessage.textContent = 'Streaming video to backend for processing...';
+
+                // Connect WebSocket for real-time communication
+                connectWebSocket();
+
+                console.log('✅ Live detection started:', sessionId);
+
+            } catch (err) {
+                alert('Failed to start detection: ' + err.message);
+                startBtn.disabled = false;
+                startBtn.innerHTML = '▶️ Start Live Detection';
+                console.error('Start error:', err);
+
+                // Clean up on error
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                    localStream = null;
+                }
+            }
+        }
+
+        // Stop detection
+        async function stopDetection() {
+            try {
+                stopBtn.disabled = true;
+                stopBtn.innerHTML = '<span class="loading"></span> Stopping...';
+
+                // Stop frame capture
+                if (frameInterval) {
+                    clearInterval(frameInterval);
+                    frameInterval = null;
+                }
+
+                // Close WebSocket
+                if (ws) {
+                    ws.close();
+                    ws = null;
+                }
+
+                // Stop local camera stream
+                if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                    localStream = null;
+                    localVideo.srcObject = null;
+                }
+
+                // Stop backend session
+                await fetch(`${API_URL}/api/detection/stop`, {
+                    method: 'POST'
+                });
+
+                // Reset state
+                isActive = false;
+                sessionId = null;
+                sessionIdEl.textContent = 'None';
+                websocketState.textContent = 'Disconnected';
+                streamState.textContent = 'Inactive';
+                processingStatus.textContent = 'Waiting';
+
+                // Reset UI
+                startBtn.style.display = 'inline-block';
+                stopBtn.style.display = 'none';
+                testBtn.style.display = 'inline-block';
+                startBtn.disabled = false;
+                startBtn.innerHTML = '▶️ Start Live Detection';
+                stopBtn.disabled = false;
+                stopBtn.innerHTML = '⏹️ Stop Detection';
+
+                statusBox.classList.add('inactive');
+                statusBox.classList.remove('warning', 'danger');
+                statusText.textContent = 'SYSTEM IDLE';
+                statusMessage.textContent = 'Detection stopped successfully';
+                alertBanner.classList.remove('show');
+
+                // Hide processed feed
+                processedImage.style.display = 'none';
+                processedCanvas.style.display = 'none';
+                noFeedMessage.style.display = 'block';
+
+                // Reset metrics
+                resetMetrics();
+                console.log('✅ Detection stopped');
+
+            } catch (err) {
+                alert('Failed to stop detection: ' + err.message);
+                console.error('Stop error:', err);
+            }
+        }
+
+        // Connect WebSocket for real-time communication
+        function connectWebSocket() {
+            if (!sessionId) return;
+
+            const wsUrl = `wss://guardian-co-pilot-1.onrender.com/ws/${sessionId}`;
+            console.log('🔌 Connecting to WebSocket:', wsUrl);
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('✅ WebSocket connected');
+                websocketState.textContent = 'Connected';
+                websocketState.style.color = '#4caf50';
+                streamState.textContent = 'Active';
+                streamState.style.color = '#4caf50';
+
+                // Start frame capture interval
+                frameInterval = setInterval(captureAndSendFrame, 100); // 10 FPS
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+
+                    if (message.type === 'metrics_update') {
+                        updateMetrics(message.data);
+                        backendFrameCount++;
+                        updateBackendFPS();
+                    } else if (message.type === 'heartbeat') {
+                        console.log('💓 WebSocket heartbeat');
+                    } else if (message.type === 'connection') {
+                        console.log('🔗 WebSocket connection confirmed');
+                    } else if (message.type === 'processed_frame') {
+                        // Display processed frame from backend
+                        displayProcessedFrame(message.frame_data);
+                    }
+                } catch (err) {
+                    console.error('❌ WebSocket message error:', err);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('❌ WebSocket error:', error);
+                websocketState.textContent = 'Error';
+                websocketState.style.color = '#f44336';
+                streamState.textContent = 'Error';
+                streamState.style.color = '#f44336';
+            };
+
+            ws.onclose = (event) => {
+                console.log('🔌 WebSocket closed:', event.code, event.reason);
+                ws = null;
+                websocketState.textContent = 'Disconnected';
+                websocketState.style.color = '#ff9800';
+                streamState.textContent = 'Inactive';
+                streamState.style.color = '#ff9800';
+
+                // Stop frame capture
+                if (frameInterval) {
+                    clearInterval(frameInterval);
+                    frameInterval = null;
+                }
+
+                // Try to reconnect if we're still active
+                if (isActive && sessionId) {
+                    console.log('🔄 Attempting to reconnect WebSocket in 3 seconds...');
+                    setTimeout(() => connectWebSocket(), 3000);
+                }
+            };
+        }
+
+        // Display processed frame from backend
+        function displayProcessedFrame(frameData) {
+            if (frameData) {
+                processedImage.src = `data:image/jpeg;base64,${frameData}`;
+                processedImage.style.display = 'block';
+                processedCanvas.style.display = 'none';
+                noFeedMessage.style.display = 'none';
+                processingStatus.textContent = 'Processing';
+                processingStatus.style.color = '#4caf50';
+            }
+        }
+
+        // Update backend FPS counter
+        function updateBackendFPS() {
+            const now = Date.now();
+            const elapsed = (now - startTime) / 1000;
+            const fps = elapsed > 0 ? backendFrameCount / elapsed : 0;
+            backendFpsEl.textContent = Math.round(fps);
+        }
+
+        // Update all metrics display
+        function updateMetrics(data) {
+            frameCounter++;
+
+            // Update raw data display
+            rawMetrics.textContent = JSON.stringify(data, null, 2);
+
+            // EAR (Eye Aspect Ratio)
+            earValue.textContent = data.ear.toFixed(3);
+            eyeState.textContent = data.eye_state;
+            eyeState.className = 'metric-state ' + (
+                data.eye_state === 'OPEN' ? 'state-good' :
+                data.eye_state === 'CLOSED' ? 'state-danger' : 'state-warning'
+            );
+
+            // MAR (Mouth Aspect Ratio)
+            marValue.textContent = data.mar.toFixed(3);
+            mouthState.textContent = data.mouth_state;
+            mouthState.className = 'metric-state ' + (
+                data.mouth_state === 'CLOSED' ? 'state-good' :
+                data.mouth_state === 'YAWNING' ? 'state-warning' : 'state-neutral'
+            );
+
+            // Fatigue Level
+            fatigueValue.textContent = data.fatigue_level;
+            let fatigueClass = 'state-good';
+            if (data.fatigue_level === 1) fatigueClass = 'state-neutral';
+            else if (data.fatigue_level === 2) fatigueClass = 'state-warning';
+            else if (data.fatigue_level === 3) fatigueClass = 'state-danger';
+            fatigueState.textContent = data.status;
+            fatigueState.className = 'metric-state ' + fatigueClass;
+
+            // FPS
+            fpsValue.textContent = Math.round(data.fps);
+            fpsState.textContent = data.fps > 10 ? 'GOOD' : 'LOW';
+            fpsState.className = 'metric-state ' + (data.fps > 10 ? 'state-good' : 'state-warning');
+
+            // Face Detection
+            faceValue.textContent = data.face_detected ? '✅' : '❌';
+            faceState.textContent = data.face_detected ? 'FACE DETECTED' : 'NO FACE';
+            faceState.className = 'metric-state ' + (data.face_detected ? 'state-good' : 'state-danger');
+
+            // Frame count and duration
+            frameCount.textContent = frameCounter;
+            if (startTime) {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                durationState.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+
+            // Update status box
+            updateStatusBox(data);
+
+            // Handle alerts
+            handleAlerts(data);
+        }
+
+        // Update status box based on fatigue level
+        function updateStatusBox(data) {
+            statusBox.className = 'status-box';
+
+            if (data.fatigue_level === 0) {
+                statusBox.classList.add('inactive');
+            } else if (data.fatigue_level === 1) {
+                statusBox.classList.add('inactive');
+            } else if (data.fatigue_level === 2) {
+                statusBox.classList.add('warning');
+            } else if (data.fatigue_level === 3) {
+                statusBox.classList.add('danger');
+            }
+
+            statusText.textContent = data.status;
+            statusMessage.textContent = data.alert_message || 'All systems normal';
+        }
+
+        // Handle alert banners
+        function handleAlerts(data) {
+            if (data.fatigue_level >= 3 && data.alert_message) {
+                alertBanner.textContent = `🚨 CRITICAL ALERT: ${data.alert_message}`;
+                alertBanner.classList.add('show');
+                playAlertSound();
+            } else if (data.fatigue_level >= 2 && data.alert_message) {
+                alertBanner.textContent = `⚠️ WARNING: ${data.alert_message}`;
+                alertBanner.classList.add('show');
+                alertBanner.style.background = '#ff9800';
+            } else {
+                alertBanner.classList.remove('show');
+            }
+        }
+
+        // Play alert sound
+        function playAlertSound() {
+            try {
+                const audioContext = new(window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.5);
+            } catch (err) {
+                console.log('Audio context not supported');
+            }
+        }
+
+        // Reset all metrics to default
+        function resetMetrics() {
+            earValue.textContent = '0.000';
+            marValue.textContent = '0.000';
+            fatigueValue.textContent = '0';
+            fpsValue.textContent = '0';
+            faceValue.textContent = '❌';
+            frameCount.textContent = '0';
+            localFpsEl.textContent = '0';
+            backendFpsEl.textContent = '0';
+
+            eyeState.textContent = 'WAITING';
+            eyeState.className = 'metric-state state-neutral';
+            mouthState.textContent = 'WAITING';
+            mouthState.className = 'metric-state state-neutral';
+            fatigueState.textContent = 'NORMAL';
+            fatigueState.className = 'metric-state state-good';
+            fpsState.textContent = 'IDLE';
+            fpsState.className = 'metric-state state-neutral';
+            faceState.textContent = 'NO FACE';
+            faceState.className = 'metric-state state-neutral';
+            durationState.textContent = '00:00';
+
+            rawMetrics.textContent = 'Waiting for data from backend...';
+        }
+
+        // Test mode - generate simulated data
+        let testInterval = null;
+
+        function startTestMode() {
+            if (isActive) return;
+
+            isActive = true;
+            startTime = Date.now();
+            frameCounter = 0;
+            sessionId = 'test_mode';
+            sessionIdEl.textContent = 'TEST MODE';
+            websocketState.textContent = 'Simulated';
+
+            startBtn.style.display = 'none';
+            testBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+
+            statusBox.classList.remove('inactive');
+            statusText.textContent = 'TEST MODE ACTIVE';
+            statusMessage.textContent = 'Generating simulated driver metrics...';
+
+            let cycle = 0;
+            testInterval = setInterval(() => {
+                cycle++;
+                const scenario = Math.floor(cycle / 100) % 4;
+
+                let ear, mar, eye_state, mouth_state, fatigue_level, status, alert_message;
+
+                if (scenario === 0) {
+                    ear = 0.25 + (Math.random() - 0.5) * 0.02;
+                    mar = Math.random() * 0.1;
+                    eye_state = 'OPEN';
+                    mouth_state = 'CLOSED';
+                    fatigue_level = 0;
+                    status = 'ALERT - All systems normal';
+                    alert_message = null;
+                } else if (scenario === 1) {
+                    ear = 0.22 + (Math.random() - 0.5) * 0.03;
+                    mar = Math.random() * 0.15;
+                    eye_state = ear > 0.20 ? 'OPEN' : 'CLOSED';
+                    mouth_state = 'CLOSED';
+                    fatigue_level = 1;
+                    status = 'CAUTION - Slight drowsiness';
+                    alert_message = null;
+                } else if (scenario === 2) {
+                    ear = cycle % 20 < 15 ? 0.20 : 0.15;
+                    mar = Math.random() < 0.1 ? 0.6 : 0.1;
+                    eye_state = cycle % 20 < 15 ? 'OPEN' : 'CLOSED';
+                    mouth_state = mar > 0.5 ? 'YAWNING' : 'CLOSED';
+                    fatigue_level = 2;
+                    status = 'WARNING - Moderate drowsiness';
+                    alert_message = '⚠️ Take a break soon!';
+                } else {
+                    ear = cycle % 10 < 5 ? 0.10 : 0.18;
+                    mar = Math.random() < 0.15 ? 0.65 : 0.12;
+                    eye_state = cycle % 10 < 5 ? 'CLOSED' : 'OPEN';
+                    mouth_state = mar > 0.5 ? 'YAWNING' : 'CLOSED';
+                    fatigue_level = 3;
+                    status = '🚨 DANGER - Severe drowsiness!';
+                    alert_message = '🚨 PULL OVER IMMEDIATELY!';
+                }
+
+                const data = {
+                    ear: ear,
+                    mar: mar,
+                    eye_state: eye_state,
+                    mouth_state: mouth_state,
+                    fatigue_level: fatigue_level,
+                    face_detected: true,
+                    status: status,
+                    alert_message: alert_message,
+                    fps: 30 + (Math.random() - 0.5) * 5
+                };
+
+                updateMetrics(data);
+            }, 100);
+
+            console.log('🧪 Test mode started');
+        }
+
+        function stopTestMode() {
+            if (testInterval) {
+                clearInterval(testInterval);
+                testInterval = null;
+            }
+            isActive = false;
+            sessionId = null;
+            sessionIdEl.textContent = 'None';
+            websocketState.textContent = 'Disconnected';
+
+            startBtn.style.display = 'inline-block';
+            testBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+
+            statusBox.classList.add('inactive');
+            statusBox.classList.remove('warning', 'danger');
+            statusText.textContent = 'SYSTEM IDLE';
+            statusMessage.textContent = 'Test mode stopped';
+            alertBanner.classList.remove('show');
+
+            resetMetrics();
+            console.log('🧪 Test mode stopped');
+        }
+
+        // Event listeners
+        startBtn.addEventListener('click', startDetection);
+        stopBtn.addEventListener('click', stopDetection);
+        testBtn.addEventListener('click', startTestMode);
+
+        // Modify stop detection to handle test mode
+        const originalStopDetection = stopDetection;
+        stopDetection = async function() {
+            if (sessionId === 'test_mode') {
+                stopTestMode();
+            } else {
+                await originalStopDetection();
+            }
+        };
+
+        // Initialize application
+        async function initializeApp() {
+            console.log('🚀 Guardian Co-Pilot Frontend Initializing...');
+
+            // Check backend status
+            await checkBackend();
+
+            // Set up periodic health checks
+            setInterval(checkBackend, 30000);
+
+            console.log('✅ Frontend initialized successfully');
+        }
+
+        // Start the application
+        initializeApp();
+    </script>
+</body>
+
+</html>

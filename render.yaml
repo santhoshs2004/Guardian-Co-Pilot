@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: guardian-copilot
+    env: docker
+    docker:
+      dockerfilePath: ./Dockerfile
+      context: ./wellness_ai310
+    envVars:
+      - key: PORT
+        value: 8000

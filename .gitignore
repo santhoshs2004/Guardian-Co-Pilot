@@ -71,3 +71,21 @@ Thumbs.db
 
 # Logs
 *.log
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+wellness_ai310/
+*.egg-info/
+dist/
+build/
+.env
+.DS_Store
+*.mp4
+*.avi
+sessions_db/
+*.log

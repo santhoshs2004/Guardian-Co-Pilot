@@ -132,7 +132,7 @@ Real-time Processing: <50ms per frame
 
 
 
-Python: 3.8, 3.9, 3.10, 3.11, or 3.12
+Python: 3.10
 
 
 OS: Windows 10+, macOS 10.14+, Ubuntu 18.04+
@@ -158,7 +158,7 @@ wellness_ai\Scripts\activate  # Windows
 
 # 2. Install dependencies
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirement.txt
 
 # 3. Verify installation
 python -c "import cv2, mediapipe, numpy; print('✅ All systems ready!')"

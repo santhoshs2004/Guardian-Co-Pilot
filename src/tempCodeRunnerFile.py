@@ -2,8 +2,6 @@ import cv2
 import time
 import numpy as np
 from fatigue_detector import FatigueDetector
-# newly added
-
 #from fatigue_detector import SimpleFatigueDetector as FatigueDetector
 
 class CarFatigueDetectionApp:
