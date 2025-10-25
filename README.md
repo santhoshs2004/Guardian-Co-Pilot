@@ -158,7 +158,7 @@ wellness_ai\Scripts\activate  # Windows
 
 # 2. Install dependencies
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirement.txt
 
 # 3. Verify installation
 python -c "import cv2, mediapipe, numpy; print('✅ All systems ready!')"
