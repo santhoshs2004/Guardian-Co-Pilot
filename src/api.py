@@ -71,7 +71,8 @@ class VideoStreamDetectionSystem:
         self.processed_frames = 0
         
     def start(self):
-        """Start frame processing thread"""
+        """Start frame processing thread - NO CAMERA NEEDED"""
+        print("🎮 Starting VIDEO STREAM processing mode - No local camera needed")
         self.thread = threading.Thread(target=self._processing_loop, daemon=True)
         self.thread.start()
         self.running = True
